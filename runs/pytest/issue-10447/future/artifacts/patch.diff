@@ -1,0 +1,88 @@
+diff --git a/src/_pytest/fixtures.py b/src/_pytest/fixtures.py
+index d79895c26..e85db739c 100644
+--- a/src/_pytest/fixtures.py
++++ b/src/_pytest/fixtures.py
+@@ -57,6 +57,7 @@ from _pytest.deprecated import YIELD_FIXTURE
+ from _pytest.mark import Mark
+ from _pytest.mark import ParameterSet
+ from _pytest.mark.structures import MarkDecorator
++from _pytest.mark.structures import get_unpacked_marks
+ from _pytest.outcomes import fail
+ from _pytest.outcomes import TEST_OUTCOME
+ from _pytest.pathlib import absolutepath
+@@ -1443,9 +1444,7 @@ class FixtureManager:
+         else:
+             argnames = ()
+ 
+-        usefixtures = tuple(
+-            arg for mark in node.iter_markers(name="usefixtures") for arg in mark.args
+-        )
++        usefixtures = self._getusefixtures(node)
+         initialnames = usefixtures + argnames
+         fm = node.session._fixturemanager
+         initialnames, names_closure, arg2fixturedefs = fm.getfixtureclosure(
+@@ -1453,6 +1452,21 @@ class FixtureManager:
+         )
+         return FuncFixtureInfo(argnames, initialnames, names_closure, arg2fixturedefs)
+ 
++    def _getusefixtures(self, node: nodes.Node) -> Tuple[str, ...]:
++        usefixtures = []
++        for chain_node in node.listchain():
++            obj = getattr(chain_node, "obj", None)
++            if inspect.isclass(obj):
++                for base in reversed(obj.__mro__):
++                    for mark in get_unpacked_marks(base, consider_mro=False):
++                        if mark.name == "usefixtures":
++                            usefixtures.extend(mark.args)
++            else:
++                for mark in chain_node.own_markers:
++                    if mark.name == "usefixtures":
++                        usefixtures.extend(mark.args)
++        return tuple(usefixtures)
++
+     def pytest_plugin_registered(self, plugin: _PluggyPlugin) -> None:
+         nodeid = None
+         try:
+diff --git a/testing/test_unittest.py b/testing/test_unittest.py
+index d917d331a..2efa760c1 100644
+--- a/testing/test_unittest.py
++++ b/testing/test_unittest.py
+@@ -1090,6 +1090,38 @@ def test_usefixtures_marker_on_unittest(base, pytester: Pytester) -> None:
+     result.assert_outcomes(passed=2)
+ 
+ 
++@pytest.mark.filterwarnings("ignore:TestResult has no addDuration method:RuntimeWarning")
++def test_usefixtures_marker_on_unittest_inherited_class(pytester: Pytester) -> None:
++    pytester.makepyfile(
++        """
++        import unittest
++        import pytest
++
++        events = []
++
++        @pytest.fixture
++        def parent_fixture():
++            events.append("parent")
++
++        @pytest.fixture
++        def child_fixture():
++            events.append("child")
++
++        @pytest.mark.usefixtures("parent_fixture")
++        class Base(unittest.TestCase):
++            pass
++
++        @pytest.mark.usefixtures("child_fixture")
++        class Test(Base):
++            def test_one(self):
++                assert events == ["parent", "child"]
++        """
++    )
++
++    result = pytester.runpytest()
++    result.assert_outcomes(passed=1)
++
++
+ def test_testcase_handles_init_exceptions(pytester: Pytester) -> None:
+     """
+     Regression test to make sure exceptions in the __init__ method are bubbled up correctly.

@@ -1,0 +1,47 @@
+diff --git a/fastapi/dependencies/utils.py b/fastapi/dependencies/utils.py
+index c581348c9..63cc257ff 100644
+--- a/fastapi/dependencies/utils.py
++++ b/fastapi/dependencies/utils.py
+@@ -383,7 +383,7 @@ def analyze_param(
+         ), f"Cannot specify multiple `Annotated` FastAPI arguments for {param_name!r}"
+         fastapi_annotation = next(iter(fastapi_annotations), None)
+         if isinstance(fastapi_annotation, FieldInfo):
+-            field_info = fastapi_annotation
++            field_info = deepcopy(fastapi_annotation)
+             assert field_info.default is Undefined or field_info.default is Required, (
+                 f"`{field_info.__class__.__name__}` default value cannot be set in"
+                 f" `Annotated` for {param_name!r}. Set the default value with `=` instead."
+diff --git a/tests/test_ambiguous_params.py b/tests/test_ambiguous_params.py
+index 42bcc27a1..d02768041 100644
+--- a/tests/test_ambiguous_params.py
++++ b/tests/test_ambiguous_params.py
+@@ -1,5 +1,6 @@
+ import pytest
+-from fastapi import Depends, FastAPI, Path
++from fastapi import APIRouter, Depends, FastAPI, Path
++from fastapi.testclient import TestClient
+ from fastapi.param_functions import Query
+ from typing_extensions import Annotated
+ 
+@@ -64,3 +65,21 @@ def test_no_multiple_annotations():
+         @app.get("/")
+         async def get3(foo: Annotated[int, Query(min_length=1)] = Depends(dep)):
+             pass  # pragma: nocover
++
++
++def test_annotated_default_value_in_router():
++    router = APIRouter()
++
++    @router.get("/")
++    async def get(n: Annotated[float, Query()] = 50):
++        return {"n": n}
++
++    app = FastAPI()
++    app.include_router(router)
++
++    client = TestClient(app)
++
++    response = client.get("/")
++
++    assert response.status_code == 200
++    assert response.json() == {"n": 50.0}

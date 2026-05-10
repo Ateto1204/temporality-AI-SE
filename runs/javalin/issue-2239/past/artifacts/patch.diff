@@ -1,0 +1,51 @@
+diff --git a/javalin/src/main/java/io/javalin/http/Cookie.kt b/javalin/src/main/java/io/javalin/http/Cookie.kt
+index 8ecc6026..31b0afbe 100644
+--- a/javalin/src/main/java/io/javalin/http/Cookie.kt
++++ b/javalin/src/main/java/io/javalin/http/Cookie.kt
+@@ -44,7 +44,9 @@ fun HttpServletResponse.setJavalinCookie(javalinCookie: Cookie) {
+     this.addCookie(cookie) // we rely on this method for formatting the cookie header
+     (this.getHeaders(Header.SET_COOKIE) ?: listOf()).toMutableList().let { cookies -> // mutable list of all cookies
+         cookies.removeIf { it.startsWith("${cookie.name}=") && !it.contains(cookie.value) } // remove old cookie if duplicate name
+-        cookies.removeFirst()?.let { first -> this.setHeader(Header.SET_COOKIE, first.addSameSite(javalinCookie)) } // remove first cookie and use it to clear the header
++        if (cookies.isNotEmpty()) {
++            this.setHeader(Header.SET_COOKIE, cookies.removeAt(0).addSameSite(javalinCookie)) // use the first cookie to clear the header
++        }
+         cookies.forEach { remaining -> this.addHeader(Header.SET_COOKIE, remaining.addSameSite(javalinCookie)) } // add all remaining cookies
+     }
+ 
+diff --git a/javalin/src/test/java/io/javalin/TestCookie.kt b/javalin/src/test/java/io/javalin/TestCookie.kt
+index 27ee5ba4..007bb17d 100644
+--- a/javalin/src/test/java/io/javalin/TestCookie.kt
++++ b/javalin/src/test/java/io/javalin/TestCookie.kt
+@@ -3,10 +3,14 @@ package io.javalin
+ import io.javalin.http.Cookie
+ import io.javalin.http.Header
+ import io.javalin.http.SameSite
++import io.javalin.http.setJavalinCookie
+ import io.javalin.testing.TestUtil
++import jakarta.servlet.http.HttpServletResponse
+ import kong.unirest.Unirest
+ import org.assertj.core.api.Assertions.assertThat
++import org.assertj.core.api.Assertions.assertThatCode
+ import org.junit.jupiter.api.Test
++import org.mockito.Mockito
+ 
+ class TestCookie {
+ 
+@@ -86,6 +90,16 @@ class TestCookie {
+         assertThat(http.getBody("/get-cookie")).isEqualTo("Tast")
+     }
+ 
++    @Test
++    fun `setting cookie through response helper works on Java 17`() {
++        val response = Mockito.mock(HttpServletResponse::class.java)
++        Mockito.`when`(response.getHeaders(Header.SET_COOKIE)).thenReturn(listOf("Test=Tast; Path=/"))
++
++        assertThatCode { response.setJavalinCookie(Cookie("Test", "Tast")) }.doesNotThrowAnyException()
++
++        Mockito.verify(response).setHeader(Header.SET_COOKIE, "Test=Tast; Path=/")
++    }
++
+     @Test
+     fun `setting a Cookie object works`() = TestUtil.test { app, http ->
+         app.get("/create-cookie") { it.cookie(Cookie("Hest", "Hast", maxAge = 7)) }

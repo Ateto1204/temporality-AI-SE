@@ -1,0 +1,12 @@
+..............                                                           [100%]
+=============================== warnings summary ===============================
+../../../../Library/Python/3.9/lib/python/site-packages/_pytest/cacheprovider.py:451
+  /Users/ateto/Library/Python/3.9/lib/python/site-packages/_pytest/cacheprovider.py:451: PytestCacheWarning: could not create cache path /dev/.pytest_cache/v/cache/nodeids: [Errno 1] Operation not permitted: '/dev/.pytest_cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+../../../../Library/Python/3.9/lib/python/site-packages/_pytest/stepwise.py:56
+  /Users/ateto/Library/Python/3.9/lib/python/site-packages/_pytest/stepwise.py:56: PytestCacheWarning: could not create cache path /dev/.pytest_cache/v/cache/stepwise: [Errno 1] Operation not permitted: '/dev/.pytest_cache'
+    session.config.cache.set(STEPWISE_CACHE_DIR, [])
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+14 passed, 2 warnings in 0.39s
