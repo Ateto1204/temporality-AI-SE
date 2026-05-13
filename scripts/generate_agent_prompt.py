@@ -4,103 +4,7 @@ from pathlib import Path
 import argparse
 import sys
 
-CONDITION_TEMPLATES = {
-    "neither": """# Agent Task
-
-Repository:
-{repo}
-
-Base release:
-{base_release}
-
-Issue:
-{issue}
-
-Temporal context:
-No temporal note is provided for this run.
-
-Instructions:
-1. Resolve the issue on the checked-out base release.
-2. Use only the current codebase and the issue description.
-3. Do not assume future APIs, dependencies, files, or designs.
-4. Keep the patch minimal and maintainable.
-5. Run relevant tests if possible.
-6. Summarize your changes and tests run.
-""",
-    "past": """# Agent Task
-
-Repository:
-{repo}
-
-Base release:
-{base_release}
-
-Issue:
-{issue}
-
-Past Note:
-{past_note}
-
-Instructions:
-1. Use the Past Note only as historical context already valid before the base release.
-2. Do not treat it as a direct solution guide.
-3. Verify all implementation choices against the current codebase.
-4. Do not assume future APIs, dependencies, files, or designs.
-5. Keep the patch minimal and maintainable.
-6. Run relevant tests if possible.
-7. Summarize your changes and tests run.
-""",
-    "future": """# Agent Task
-
-Repository:
-{repo}
-
-Base release:
-{base_release}
-
-Issue:
-{issue}
-
-Future Note:
-{future_note}
-
-Instructions:
-1. Use the Future Note only as high-level later-evolution context.
-2. Do not assume future APIs, dependencies, files, configuration formats, or designs exist in the base release.
-3. Do not copy future implementation strategies.
-4. Verify every implementation choice against the current codebase.
-5. Keep the patch minimal and maintainable.
-6. Run relevant tests if possible.
-7. Summarize your changes and tests run.
-""",
-    "both": """# Agent Task
-
-Repository:
-{repo}
-
-Base release:
-{base_release}
-
-Issue:
-{issue}
-
-Past Note:
-{past_note}
-
-Future Note:
-{future_note}
-
-Instructions:
-1. Use the Past Note as historical context already valid before the base release.
-2. Use the Future Note only as high-level later-evolution context.
-3. If the notes suggest different directions, prioritize what is valid in the checked-out base release.
-4. Do not assume future APIs, dependencies, files, configuration formats, or designs exist in the base release.
-5. Verify every implementation choice against the current codebase.
-6. Keep the patch minimal and maintainable.
-7. Run relevant tests if possible.
-8. Summarize your changes and tests run.
-"""
-}
+CONDITIONS = ["neither", "past", "future", "both"]
 
 
 def read_required(path: Path) -> str:
@@ -112,10 +16,9 @@ def read_required(path: Path) -> str:
     return text
 
 
-def read_optional(path: Path) -> str:
-    if path.exists():
-        return path.read_text(encoding="utf-8").strip()
-    return ""
+def read_template(condition: str) -> str:
+    template_path = Path("prompts") / f"{condition}.md"
+    return read_required(template_path)
 
 
 def main() -> None:
@@ -126,7 +29,7 @@ def main() -> None:
     parser.add_argument(
         "--condition",
         required=True,
-        choices=["neither", "past", "future", "both"],
+        choices=CONDITIONS,
     )
     args = parser.parse_args()
 
@@ -147,7 +50,7 @@ def main() -> None:
     if args.condition in ["future", "both"]:
         future_note = read_required(future_path)
 
-    template = CONDITION_TEMPLATES[args.condition]
+    template = read_template(args.condition)
     prompt = template.format(
         repo=args.repo,
         base_release=args.base_release,
