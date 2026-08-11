@@ -123,4 +123,5 @@ cbar.set_ticks([0, 1, 2])
 
 fig.tight_layout()
 fig.savefig("rubric_score_heatmap.svg", bbox_inches="tight")
+fig.savefig("rubric_score_heatmap.pdf", bbox_inches="tight")
 plt.show()
